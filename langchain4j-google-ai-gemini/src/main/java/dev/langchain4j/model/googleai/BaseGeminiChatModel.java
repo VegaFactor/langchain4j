@@ -230,6 +230,11 @@ class BaseGeminiChatModel {
             finishReason = TOOL_EXECUTION;
         }
 
+        // Prefer response-level grounding metadata; fall back to candidate-level
+        GroundingMetadata groundingMetadata = geminiResponse.groundingMetadata() != null
+                ? geminiResponse.groundingMetadata()
+                : firstCandidate.groundingMetadata();
+
         return ChatResponse.builder()
                 .aiMessage(aiMessage)
                 .metadata(GoogleAiGeminiChatResponseMetadata.builder()
@@ -237,7 +242,9 @@ class BaseGeminiChatModel {
                         .modelName(geminiResponse.modelVersion())
                         .tokenUsage(createTokenUsage(geminiResponse.usageMetadata()))
                         .finishReason(finishReason)
-                        .groundingMetadata(geminiResponse.groundingMetadata())
+                        .groundingMetadata(groundingMetadata)
+                        .urlContextMetadata(
+                                UrlContextMetadata.fromGemini(firstCandidate.urlContextMetadata()))
                         .build())
                 .build();
     }
