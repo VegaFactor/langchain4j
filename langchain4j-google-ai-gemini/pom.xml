@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>langchain4j-google-ai-gemini</artifactId>
-    <version>1.11.0</version>
+    <version>1.11.0-vegafactor-1</version>
     <name>LangChain4j :: Integration :: Google AI Gemini</name>
 
     <developers>
