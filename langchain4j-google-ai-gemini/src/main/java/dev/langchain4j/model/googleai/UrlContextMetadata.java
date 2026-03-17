@@ -15,6 +15,7 @@ public record UrlContextMetadata(List<UrlMetadata> urlMetadata) {
             return null;
         }
         return new UrlContextMetadata(geminiUrlContextMetadata.urlMetadata().stream()
+                .filter(m -> m != null)
                 .map(m -> new UrlMetadata(
                         m.retrievedUrl(),
                         m.urlRetrievalStatus() != null ? m.urlRetrievalStatus().toString() : null))

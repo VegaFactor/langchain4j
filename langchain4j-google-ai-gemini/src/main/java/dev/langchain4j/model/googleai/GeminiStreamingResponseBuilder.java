@@ -134,11 +134,14 @@ class GeminiStreamingResponseBuilder {
     }
 
     private void updateGroundingMetadata(GeminiGenerateContentResponse response, GeminiCandidate candidate) {
-        // Prefer response-level; fall back to candidate-level (mirrors processResponse logic)
-        GroundingMetadata metadata =
-                response.groundingMetadata() != null ? response.groundingMetadata() : candidate.groundingMetadata();
-        if (metadata != null) {
-            this.groundingMetadata.set(metadata);
+        // Response-level grounding always wins — set it unconditionally when present.
+        // Candidate-level grounding is only used as a fallback when no grounding has been
+        // captured yet; this prevents a later chunk's candidate-level grounding from
+        // "downgrading" a previously captured response-level value.
+        if (response.groundingMetadata() != null) {
+            this.groundingMetadata.set(response.groundingMetadata());
+        } else if (candidate.groundingMetadata() != null && this.groundingMetadata.get() == null) {
+            this.groundingMetadata.set(candidate.groundingMetadata());
         }
     }
 

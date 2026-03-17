@@ -114,6 +114,30 @@ class GeminiStreamingResponseBuilderTest {
     }
 
     @Test
+    void shouldNotDowngradeResponseLevelGroundingWithLaterCandidateLevelGrounding() {
+        // Given: first chunk carries response-level grounding
+        GroundingMetadata responseGrounding = GroundingMetadata.builder()
+                .webSearchQueries(List.of("response query"))
+                .build();
+        builder.append(createFinalChunkWithResponseGrounding("first ", responseGrounding));
+
+        // And: a subsequent chunk carries only candidate-level grounding (no response-level)
+        GroundingMetadata candidateGrounding = GroundingMetadata.builder()
+                .webSearchQueries(List.of("candidate query"))
+                .build();
+        builder.append(createChunkWithCandidateGrounding("second", candidateGrounding));
+
+        // When
+        ChatResponse response = builder.build();
+
+        // Then: the response-level grounding from the earlier chunk must not be overwritten
+        GoogleAiGeminiChatResponseMetadata metadata =
+                (GoogleAiGeminiChatResponseMetadata) response.metadata();
+        assertThat(metadata.groundingMetadata()).isNotNull();
+        assertThat(metadata.groundingMetadata().webSearchQueries()).containsExactly("response query");
+    }
+
+    @Test
     void shouldHaveNullMetadataWhenAbsentFromAllChunks() {
         // Given: chunks with no grounding or URL context metadata
         builder.append(createTextChunk("Hello "));
