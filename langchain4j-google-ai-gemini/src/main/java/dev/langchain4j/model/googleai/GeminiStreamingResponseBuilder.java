@@ -9,6 +9,7 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.googleai.GeminiGenerateContentResponse.GeminiCandidate;
+import dev.langchain4j.model.googleai.GeminiGenerateContentResponse.GeminiUrlContextMetadata;
 import dev.langchain4j.model.googleai.GeminiGenerateContentResponse.GeminiUsageMetadata;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
@@ -37,6 +38,8 @@ class GeminiStreamingResponseBuilder {
     private final AtomicReference<String> modelName = new AtomicReference<>();
     private final AtomicReference<TokenUsage> tokenUsage = new AtomicReference<>();
     private final AtomicReference<FinishReason> finishReason = new AtomicReference<>();
+    private final AtomicReference<GroundingMetadata> groundingMetadata = new AtomicReference<>();
+    private final AtomicReference<GeminiUrlContextMetadata> urlContextMetadata = new AtomicReference<>();
 
     GeminiStreamingResponseBuilder(boolean includeCodeExecutionOutput, Boolean returnThinking) {
         this.includeCodeExecutionOutput = includeCodeExecutionOutput;
@@ -65,6 +68,8 @@ class GeminiStreamingResponseBuilder {
         updateModelName(partialResponse);
         updateFinishReason(firstCandidate);
         updateTokenUsage(partialResponse.usageMetadata());
+        updateGroundingMetadata(partialResponse, firstCandidate);
+        updateUrlContextMetadata(firstCandidate);
 
         GeminiContent content = firstCandidate.content();
         if (content == null || content.parts() == null) {
@@ -94,6 +99,8 @@ class GeminiStreamingResponseBuilder {
                         .modelName(modelName.get())
                         .tokenUsage(tokenUsage.get())
                         .finishReason(aiMessage.hasToolExecutionRequests() ? TOOL_EXECUTION : finishReason.get())
+                        .groundingMetadata(groundingMetadata.get())
+                        .urlContextMetadata(UrlContextMetadata.fromGemini(urlContextMetadata.get()))
                         .build())
                 .build();
     }
@@ -123,6 +130,24 @@ class GeminiStreamingResponseBuilder {
     private void updateFinishReason(GeminiCandidate candidate) {
         if (candidate.finishReason() != null) {
             this.finishReason.set(fromGFinishReasonToFinishReason(candidate.finishReason()));
+        }
+    }
+
+    private void updateGroundingMetadata(GeminiGenerateContentResponse response, GeminiCandidate candidate) {
+        // Response-level grounding always wins — set it unconditionally when present.
+        // Candidate-level grounding is only used as a fallback when no grounding has been
+        // captured yet; this prevents a later chunk's candidate-level grounding from
+        // "downgrading" a previously captured response-level value.
+        if (response.groundingMetadata() != null) {
+            this.groundingMetadata.set(response.groundingMetadata());
+        } else if (candidate.groundingMetadata() != null && this.groundingMetadata.get() == null) {
+            this.groundingMetadata.set(candidate.groundingMetadata());
+        }
+    }
+
+    private void updateUrlContextMetadata(GeminiCandidate candidate) {
+        if (candidate.urlContextMetadata() != null) {
+            this.urlContextMetadata.set(candidate.urlContextMetadata());
         }
     }
 
